@@ -38619,6 +38619,15 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -38651,33 +38660,78 @@ const FolderLabel = styled_components_1.default.div `
     background-color: #e8e8e8;
   }
 `;
+const EmptyState = styled_components_1.default.div `
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  color: #666;
+  margin: 20px;
+`;
 const Fold = () => {
     const [expandedFolders, setExpandedFolders] = (0, react_1.useState)(new Set());
-    const sampleData = [
-        {
-            name: 'src',
-            type: 'folder',
-            children: [
-                {
-                    name: 'components',
-                    type: 'folder',
-                    children: [
-                        { name: 'Button.tsx', type: 'file' },
-                        { name: 'Input.tsx', type: 'file' },
-                    ],
-                },
-                {
-                    name: 'pages',
-                    type: 'folder',
-                    children: [
-                        { name: 'Home.tsx', type: 'file' },
-                        { name: 'About.tsx', type: 'file' },
-                    ],
-                },
-                { name: 'App.tsx', type: 'file' },
-            ],
-        },
-    ];
+    const [fileTree, setFileTree] = (0, react_1.useState)([]);
+    const [isDragging, setIsDragging] = (0, react_1.useState)(false);
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+    const handleDrop = (e) => __awaiter(void 0, void 0, void 0, function* () {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const items = e.dataTransfer.items;
+        if (items) {
+            const item = items[0];
+            if (item.kind === 'file') {
+                const entry = item.webkitGetAsEntry();
+                if (entry && entry.isDirectory) {
+                    const tree = yield readDirectory(entry);
+                    setFileTree([tree]);
+                }
+            }
+        }
+    });
+    const readDirectory = (entry) => __awaiter(void 0, void 0, void 0, function* () {
+        return new Promise((resolve) => {
+            const reader = entry.createReader();
+            const node = {
+                name: entry.name,
+                type: entry.isDirectory ? 'folder' : 'file',
+                children: [],
+            };
+            const readEntries = () => __awaiter(void 0, void 0, void 0, function* () {
+                reader.readEntries((entries) => __awaiter(void 0, void 0, void 0, function* () {
+                    if (entries.length === 0) {
+                        resolve(node);
+                        return;
+                    }
+                    const childPromises = entries.map((childEntry) => {
+                        if (childEntry.isDirectory) {
+                            return readDirectory(childEntry);
+                        }
+                        const fileNode = {
+                            name: childEntry.name,
+                            type: 'file',
+                            children: undefined
+                        };
+                        return Promise.resolve(fileNode);
+                    });
+                    node.children = yield Promise.all(childPromises);
+                    resolve(node);
+                }));
+            });
+            readEntries();
+        });
+    });
     const toggleFolder = (path) => {
         const newExpanded = new Set(expandedFolders);
         if (newExpanded.has(path)) {
@@ -38701,7 +38755,10 @@ const Fold = () => {
                 node.name),
             isExpanded && node.children && (react_1.default.createElement(StyledFolder, null, node.children.map((child) => renderNode(child, `${path}/${child.name}`))))));
     };
-    return (react_1.default.createElement(StyledTree, null, sampleData.map((node) => renderNode(node, node.name))));
+    return (react_1.default.createElement(StyledTree, { onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop, style: {
+            backgroundColor: isDragging ? '#f0f0f0' : 'transparent',
+            transition: 'background-color 0.2s'
+        } }, fileTree.length > 0 ? (fileTree.map((node) => renderNode(node, node.name))) : (react_1.default.createElement(EmptyState, null, "\u8BF7\u62D6\u5165\u6587\u4EF6\u5939"))));
 };
 exports["default"] = Fold;
 
